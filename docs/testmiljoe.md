@@ -42,6 +42,12 @@ Start web-dashboard:
 ./scripts/run-test-app.sh
 ```
 
+Stop web-dashboard:
+
+```bash
+./scripts/stop-test-app.sh
+```
+
 Appen aabner paa:
 
 ```text

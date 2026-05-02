@@ -100,6 +100,12 @@ Start test-dashboard:
 ./scripts/run-test-app.sh
 ```
 
+Stop test-dashboard:
+
+```bash
+./scripts/stop-test-app.sh
+```
+
 Dashboardet koerer paa:
 
 ```text
