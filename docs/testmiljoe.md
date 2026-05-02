@@ -134,6 +134,13 @@ Naar en uploadet fil kan matches med mindst 95% sikkerhed paa baade virksomhed o
 
 Hvis sikkerheden er under 95%, bliver filen liggende i test-inbox, og dashboardet viser en samlet allokationstabel, hvor du kan rette virksomhed og dokumenttype foer bekraeftelse.
 
+Virksomhed foreslaas ud fra:
+
+- `company_id`, fx `company-01`
+- Virksomhedens navn i `index_manifest.yml`
+- Aliaser i manifestet
+- Filnavn og tekst-preview fra understoettede dokumenttyper
+
 ## Foerste installation
 
 Hvis appen siger, at FastAPI mangler, koer:

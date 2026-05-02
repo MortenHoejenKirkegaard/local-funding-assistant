@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from funding_assistant.policy import resolve_inside_root, validate_action
+from funding_assistant.test_ingestion import _company_token_score, _normalize_text
 
 
 def test_local_read_is_allowed():
@@ -92,3 +93,20 @@ def test_path_outside_allowed_root_is_rejected():
     with pytest.raises(ValueError):
         resolve_inside_root(outside, root)
 
+
+def test_company_name_normalization_supports_spacing_and_symbols():
+    normalized = _normalize_text("Acme-MedTech A/S clinical protocol")
+
+    assert normalized == "acme medtech a s clinical protocol"
+
+
+def test_company_token_score_detects_full_configured_name():
+    score = _company_token_score("acme medtech", "q2 clinical evidence for acme medtech")
+
+    assert score == 95
+
+
+def test_company_token_score_detects_partial_configured_name():
+    score = _company_token_score("acme medtech", "clinical evidence for acme")
+
+    assert score == 70

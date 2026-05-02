@@ -50,6 +50,7 @@ DOCUMENT_KEYWORDS = {
 class TestCompany:
     company_id: str
     display_name: str
+    aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -135,7 +136,8 @@ def list_test_companies() -> list[TestCompany]:
         manifest = _read_simple_manifest(manifest_path)
         company_id = manifest.get("company_id") or manifest_path.parent.name
         display_name = manifest.get("display_name") or company_id
-        companies.append(TestCompany(company_id=company_id, display_name=display_name))
+        aliases = tuple(alias.strip() for alias in manifest.get("aliases", "").split(",") if alias.strip())
+        companies.append(TestCompany(company_id=company_id, display_name=display_name, aliases=aliases))
     return companies
 
 
@@ -293,9 +295,9 @@ def html_unescape(text: str) -> str:
 
 
 def _suggestion_text(path: Path) -> str:
-    parts = [path.name.lower()]
+    parts = [_normalize_text(path.name)]
     if path.suffix.lower() in {".txt", ".md", ".csv"} and path.exists():
-        parts.append(_extract_preview(path).lower())
+        parts.append(_normalize_text(_extract_preview(path)))
     return " ".join(parts)
 
 
@@ -304,14 +306,28 @@ def _suggest_company(text: str) -> tuple[str, int, str]:
     if not companies:
         return "company-01", 0, "No companies configured."
 
-    for company in companies:
-        display = company.display_name.lower().strip()
-        if company.company_id in text:
-            return company.company_id, 98, f"Company matched by id: {company.company_id}"
-        if display and display in text:
-            return company.company_id, 98, f"Company matched by name: {company.display_name}"
+    normalized_text = _normalize_text(text)
+    best_company = companies[0]
+    best_score = 50
+    best_reason = "Defaulted to first company; no strong company signal."
 
-    return companies[0].company_id, 50, "Defaulted to first company; no strong company signal."
+    for company in companies:
+        if _normalize_text(company.company_id) in normalized_text:
+            return company.company_id, 98, f"Company matched by id: {company.company_id}"
+
+        for name_variant in _company_name_variants(company):
+            if not name_variant:
+                continue
+            if name_variant in normalized_text:
+                return company.company_id, 98, f"Company matched by configured name: {company.display_name}"
+
+            token_score = _company_token_score(name_variant, normalized_text)
+            if token_score > best_score:
+                best_company = company
+                best_score = token_score
+                best_reason = f"Company partially matched configured name: {company.display_name}"
+
+    return best_company.company_id, best_score, best_reason
 
 
 def _suggest_document_type(text: str) -> tuple[str, int, str]:
@@ -360,6 +376,7 @@ def _write_manifest(path: Path, company_id: str, display_name: str) -> None:
             [
                 f"company_id: {company_id}",
                 f"display_name: {display_name}",
+                "aliases: ",
                 "short_description: Test environment case only.",
                 "therapeutic_area: ",
                 "technology_type: ",
@@ -373,6 +390,37 @@ def _write_manifest(path: Path, company_id: str, display_name: str) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _company_name_variants(company: TestCompany) -> list[str]:
+    names = [company.display_name, *company.aliases]
+    variants = []
+    for name in names:
+        normalized = _normalize_text(name)
+        compact = normalized.replace(" ", "")
+        variants.extend([normalized, compact])
+    return [variant for variant in variants if variant]
+
+
+def _company_token_score(name_variant: str, normalized_text: str) -> int:
+    tokens = [token for token in name_variant.split() if len(token) >= 3]
+    if not tokens:
+        return 50
+
+    matches = [token for token in tokens if token in normalized_text]
+    if not matches:
+        return 50
+    if len(matches) == len(tokens):
+        return 95
+    if len(matches) >= 2:
+        return 85
+    return 70
+
+
+def _normalize_text(value: str) -> str:
+    lowered = value.lower()
+    normalized = re.sub(r"[^a-z0-9æøå]+", " ", lowered)
+    return " ".join(normalized.split())
 
 
 def _append_jsonl(path: Path, payload: dict[str, object]) -> None:
