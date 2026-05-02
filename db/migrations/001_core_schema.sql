@@ -290,14 +290,30 @@ CREATE TABLE external_collaborators (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   display_name text NOT NULL,
   email text,
-  status text NOT NULL DEFAULT 'inactive'
-    CHECK (status IN ('active', 'inactive', 'revoked')),
+  status text NOT NULL DEFAULT 'invited'
+    CHECK (status IN ('invited', 'email_verified', 'pending_owner_approval', 'active', 'inactive', 'revoked', 'expired')),
   scoped_root_path text NOT NULL,
   company_id text REFERENCES companies(id) ON DELETE SET NULL,
   project_id uuid REFERENCES projects(id) ON DELETE SET NULL,
   allowed_flow text NOT NULL DEFAULT 'upload_only',
+  invite_token_hash text NOT NULL,
+  invite_expires_at timestamptz NOT NULL,
+  email_verified_at timestamptz,
+  owner_approved_at timestamptz,
+  revoked_at timestamptz,
+  verification_attempts integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE external_email_verifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_collaborator_id uuid NOT NULL REFERENCES external_collaborators(id) ON DELETE CASCADE,
+  code_hash text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+  failed_attempts integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE external_collaborator_events (
@@ -333,3 +349,4 @@ CREATE INDEX idx_action_requests_decision_time ON action_requests(decision, crea
 CREATE INDEX idx_action_requests_type_time ON action_requests(action_type, created_at DESC);
 CREATE INDEX idx_external_collaborators_status ON external_collaborators(status);
 CREATE INDEX idx_external_collaborator_events_time ON external_collaborator_events(external_collaborator_id, created_at DESC);
+CREATE INDEX idx_external_email_verifications_collaborator ON external_email_verifications(external_collaborator_id, created_at DESC);

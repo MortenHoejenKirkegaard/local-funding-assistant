@@ -5,6 +5,9 @@ Eksterne personer maa ikke have almindelig adgang til systemet.
 Hvis ekstern adgang senere aktiveres, skal den vaere begrænset til:
 
 - En navngiven ekstern bruger.
+- Et invitation link oprettet af owner.
+- Verificeret email-kode sendt til den inviterede email.
+- Owner approval foer kontoen bliver aktiv.
 - En specifik scoped mappe under `Codex Access`.
 - Et tildelt flow, fx upload eller besvarelse af afklaringsspørgsmaal.
 - Owner review foer noget flyttes, indekseres eller bruges i drafts.
@@ -12,6 +15,21 @@ Hvis ekstern adgang senere aktiveres, skal den vaere begrænset til:
 ## Grundregel
 
 Eksterne kan kun foelge flowet. De maa ikke styre systemet.
+
+Ingen ekstern bruger maa blive aktiv alene ved at have et link. Linket er kun trin 1.
+
+Aktivering kraever alle disse trin:
+
+```text
+owner creates invite
+  -> invite link opens external portal
+  -> email verification code is sent
+  -> user enters code
+  -> owner approves access
+  -> scoped flow becomes available
+```
+
+Hvis et af trinene mangler, skal adgangen blokeres.
 
 De maa ikke:
 
@@ -91,6 +109,41 @@ external upload
 ```
 
 Eksternt uploadet materiale maa aldrig auto-indekseres direkte i en virksomheds vidensbase.
+
+## Invite og email verification
+
+Invite-regler:
+
+- Kun owner kan oprette invite.
+- Invite skal vaere knyttet til en email.
+- Invite skal vaere knyttet til en scoped root folder.
+- Invite skal vaere knyttet til et konkret flow.
+- Invite udloeber automatisk.
+- Invite link maa ikke give adgang uden email-kode.
+
+Email verification-regler:
+
+- Koden sendes til den inviterede email.
+- Koden maa kun bruges én gang.
+- Koden udloeber efter kort tid.
+- For mange fejlede forsoeg skal revoke eller blokere invite.
+- Verificeret email giver stadig ikke aktiv adgang uden owner approval.
+
+Owner approval:
+
+- Owner skal manuelt godkende aktivering efter email-verifikation.
+- Owner kan revoke adgang naar som helst.
+- Al aktivitet logges.
+
+## Portal-ruter
+
+Ekstern portal maa kun bruge ruter under:
+
+```text
+/external/
+```
+
+Admin- og owner-ruter maa ikke kunne naas fra ekstern portal-session.
 
 ## Current status
 

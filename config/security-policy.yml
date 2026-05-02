@@ -13,6 +13,15 @@ filesystem:
 external_collaborators:
   enabled: false
   default_access: "deny"
+  invite_only: true
+  owner_must_create_invite: true
+  owner_must_approve_before_activation: true
+  require_email_verification_code: true
+  verification_code_delivery: "email"
+  verification_code_ttl_minutes: 15
+  invite_ttl_hours: 72
+  max_verification_attempts: 5
+  revoke_on_failed_attempts: true
   require_named_identity: true
   require_case_scope: true
   allowed_root_template: "/Users/mortenkirkegaard/Desktop/Codex Access/funding-assistant/external/{external_user_id}"
@@ -34,6 +43,12 @@ external_collaborators:
     - "submit_to_owner_review"
   all_submissions_require_owner_review: true
   external_routes_must_start_with: "/external/"
+  activation_requires:
+    - "valid_invite"
+    - "verified_email_code"
+    - "owner_approval"
+    - "assigned_scoped_root"
+    - "assigned_flow"
 
 network:
   api_calls_default: "ask_first"

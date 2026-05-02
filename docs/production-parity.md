@@ -15,5 +15,6 @@ Det gaelder aktuelt:
 - Lokal sproglig pattern-analyse uden API-kald.
 - Weekly softfunding screening som default schedule.
 - Ekstern collaborator access maa kun ske via scoped folder og assigned flow.
+- Ekstern adgang kraever invite link, email-verifikationskode og owner approval.
 
 Testmiljoeet maa gerne bruge simplere storage og parsere, men brugerflow og sikkerhedsregler skal svare til produktion.
