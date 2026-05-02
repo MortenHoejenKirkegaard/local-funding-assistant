@@ -181,7 +181,7 @@ def suggest_indexing(filename: str) -> IndexSuggestion:
     )
 
 
-def add_test_company(display_name: str) -> TestCompany:
+def add_test_company(display_name: str, aliases: str = "") -> TestCompany:
     cleaned_name = display_name.strip()
     if not cleaned_name:
         raise ValueError("Company name is required.")
@@ -194,8 +194,9 @@ def add_test_company(display_name: str) -> TestCompany:
     company_id = f"company-{next_number:02d}"
     company_dir = TEST_ROOT / "cases" / company_id
     _create_company_structure(company_dir)
-    _write_manifest(company_dir / "index_manifest.yml", company_id, cleaned_name)
-    return TestCompany(company_id=company_id, display_name=cleaned_name)
+    alias_tuple = _parse_aliases(aliases)
+    _write_manifest(company_dir / "index_manifest.yml", company_id, cleaned_name, alias_tuple)
+    return TestCompany(company_id=company_id, display_name=cleaned_name, aliases=alias_tuple)
 
 
 def configure_test_workspace(company_names: list[str]) -> None:
@@ -236,7 +237,7 @@ def is_test_workspace_configured() -> bool:
         return False
 
 
-def rename_test_company(company_id: str, display_name: str) -> None:
+def rename_test_company(company_id: str, display_name: str, aliases: str = "") -> None:
     cleaned_name = display_name.strip()
     if not cleaned_name:
         raise ValueError("Company name is required.")
@@ -245,7 +246,7 @@ def rename_test_company(company_id: str, display_name: str) -> None:
     if not company_dir.exists():
         raise ValueError(f"Unknown test company_id: {company_id}")
 
-    _write_manifest(company_dir / "index_manifest.yml", company_id, cleaned_name)
+    _write_manifest(company_dir / "index_manifest.yml", company_id, cleaned_name, _parse_aliases(aliases))
 
 
 def remove_test_company(company_id: str) -> None:
@@ -485,14 +486,14 @@ def _read_simple_manifest(path: Path) -> dict[str, str]:
     return data
 
 
-def _write_manifest(path: Path, company_id: str, display_name: str) -> None:
+def _write_manifest(path: Path, company_id: str, display_name: str, aliases: tuple[str, ...] = ()) -> None:
     resolve_inside_root(path, PROJECT_ROOT)
     path.write_text(
         "\n".join(
             [
                 f"company_id: {company_id}",
                 f"display_name: {display_name}",
-                "aliases: ",
+                f"aliases: {', '.join(aliases)}",
                 "short_description: Test environment case only.",
                 "therapeutic_area: ",
                 "technology_type: ",
@@ -506,6 +507,10 @@ def _write_manifest(path: Path, company_id: str, display_name: str) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _parse_aliases(aliases: str) -> tuple[str, ...]:
+    return tuple(alias.strip() for alias in aliases.split(",") if alias.strip())
 
 
 def _company_name_variants(company: TestCompany) -> list[str]:

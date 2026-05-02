@@ -141,7 +141,10 @@ Virksomhed foreslaas ud fra:
 - `company_id`, fx `company-01`
 - Virksomhedens navn i `index_manifest.yml`
 - Aliaser i manifestet
+- Projektakronymer og forkortelser i aliasfeltet
 - Filnavn og tekst-preview fra understoettede dokumenttyper
+
+Du kan slette pending uploads fra Inbox eller allokationstabellen. Du kan ogsaa slette den fysiske testfil fra index-records, hvis en fil allerede er blevet indekseret.
 
 ## Skriveagent
 

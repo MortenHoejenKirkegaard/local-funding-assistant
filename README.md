@@ -100,6 +100,10 @@ Uploadede dokumenter auto-indekseres kun, hvis test-agenten er mindst 95% sikker
 
 Dashboardet har ogsaa en lokal skriveagent-sektion, hvor successfulde og ikke-successfulde funding applications kan uploades og kobles til interne eller eksterne virksomheder.
 
+Softfunding scraperen er sat til weekly schedule i [config/scheduler.yml](config/scheduler.yml).
+
+Testmiljoeets brugerflows skal foelge det egentlige setup. Se [docs/production-parity.md](docs/production-parity.md).
+
 Start test-dashboard:
 
 ```bash

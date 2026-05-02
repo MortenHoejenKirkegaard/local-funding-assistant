@@ -129,3 +129,8 @@ ingestion:
     - ".jpeg"
     - ".tif"
     - ".tiff"
+
+funding_screening:
+  max_frequency: "weekly"
+  default_day: "monday"
+  default_local_time: "07:00"

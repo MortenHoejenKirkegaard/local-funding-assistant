@@ -258,19 +258,47 @@ def bulk_ingest(
     return _redirect(message=f"{indexed} fil(er) indekseret efter bekraeftelse.")
 
 
-@app.post("/companies/add")
-def add_company(display_name: Annotated[str, Form()]) -> RedirectResponse:
+@app.post("/inbox/delete")
+def delete_inbox_file(filename: Annotated[str, Form()]) -> RedirectResponse:
     try:
-        company = add_test_company(display_name)
+        path = resolve_inside_root(TEST_INBOX / filename, PROJECT_ROOT)
+        if path.exists() and path.is_file():
+            path.unlink()
+    except ValueError as exc:
+        return _redirect(error=str(exc))
+    return _redirect(message=f"Slettet fra inbox: {filename}")
+
+
+@app.post("/files/delete")
+def delete_test_file(relative_path: Annotated[str, Form()]) -> RedirectResponse:
+    try:
+        path = resolve_inside_root(PROJECT_ROOT / relative_path, PROJECT_ROOT)
+        if TEST_ROOT not in path.parents:
+            raise ValueError("Only test environment files can be deleted here.")
+        if path.exists() and path.is_file():
+            path.unlink()
+    except ValueError as exc:
+        return _redirect(error=str(exc))
+    return _redirect(message=f"Slettet testfil: {relative_path}")
+
+
+@app.post("/companies/add")
+def add_company(display_name: Annotated[str, Form()], aliases: Annotated[str, Form()] = "") -> RedirectResponse:
+    try:
+        company = add_test_company(display_name, aliases)
     except ValueError as exc:
         return _redirect(error=str(exc))
     return _redirect(message=f"Tilfoejet virksomhed: {company.display_name} ({company.company_id})")
 
 
 @app.post("/companies/rename")
-def rename_company(company_id: Annotated[str, Form()], display_name: Annotated[str, Form()]) -> RedirectResponse:
+def rename_company(
+    company_id: Annotated[str, Form()],
+    display_name: Annotated[str, Form()],
+    aliases: Annotated[str, Form()] = "",
+) -> RedirectResponse:
     try:
-        rename_test_company(company_id, display_name)
+        rename_test_company(company_id, display_name, aliases)
     except ValueError as exc:
         return _redirect(error=str(exc))
     return _redirect(message=f"Omdobt {company_id} til {display_name.strip()}")
@@ -342,8 +370,19 @@ def _inbox_table(filenames: list[str]) -> str:
     if not filenames:
         return '<p class="muted">Ingen filer i test-inbox.</p>'
 
-    rows = "".join(f"<tr><td>{html.escape(name)}</td></tr>" for name in filenames)
-    return f"<table><thead><tr><th>Filnavn</th></tr></thead><tbody>{rows}</tbody></table>"
+    rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(name)}</td>"
+        "<td>"
+        '<form action="/inbox/delete" method="post" onsubmit="return confirm(\'Slet fil fra test-inbox?\')">'
+        f'<input type="hidden" name="filename" value="{html.escape(name)}">'
+        '<button class="secondary danger" type="submit">Slet</button>'
+        "</form>"
+        "</td>"
+        "</tr>"
+        for name in filenames
+    )
+    return f"<table><thead><tr><th>Filnavn</th><th></th></tr></thead><tbody>{rows}</tbody></table>"
 
 
 def _companies_panel(companies: list[object]) -> str:
@@ -356,7 +395,8 @@ def _companies_panel(companies: list[object]) -> str:
             '<form class="inline-form" action="/companies/rename" method="post">'
             f'<input type="hidden" name="company_id" value="{html.escape(company.company_id)}">'
             f'<input name="display_name" value="{html.escape(company.display_name)}">'
-            '<button type="submit">Omdob</button>'
+            f'<input name="aliases" value="{html.escape(", ".join(company.aliases))}" placeholder="Akronymer/aliases">'
+            '<button type="submit">Gem</button>'
             "</form>"
             "</td>"
             "<td>"
@@ -374,6 +414,7 @@ def _companies_panel(companies: list[object]) -> str:
         + """
         <form class="inline-form add-company" action="/companies/add" method="post">
           <input name="display_name" placeholder="Ny virksomhed">
+          <input name="aliases" placeholder="Projektakronymer/aliases">
           <button type="submit">Tilfoej</button>
         </form>
         """
@@ -396,12 +437,16 @@ def _bulk_allocation_form(suggestions: list[object], companies: list[object]) ->
             f"<td><select name=\"document_types\">{type_options}</select></td>"
             f"<td><span class=\"confidence {confidence_class}\">{suggestion.confidence}%</span></td>"
             f"<td>{html.escape(suggestion.rationale)}</td>"
+            "<td>"
+            '<button class="secondary danger row-delete" type="submit" formmethod="post" formaction="/inbox/delete" '
+            f'name="filename" value="{html.escape(suggestion.filename)}">Slet</button>'
+            "</td>"
             "</tr>"
         )
 
     return (
         '<form action="/bulk-ingest" method="post" onsubmit="return confirm(\'Bekraeft allokation for alle viste dokumenter?\')">'
-        "<table><thead><tr><th>Dokument</th><th>Virksomhed</th><th>Dokumenttype</th><th>Sikkerhed</th><th>Grundlag</th></tr></thead>"
+        "<table><thead><tr><th>Dokument</th><th>Virksomhed</th><th>Dokumenttype</th><th>Sikkerhed</th><th>Grundlag</th><th></th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table>"
         '<button type="submit">Bekraeft allokation</button>'
         "</form>"
@@ -510,14 +555,24 @@ def _records_table(records: list[dict[str, object]]) -> str:
         primary = record.get("destination_path") or record.get("event_type") or record.get("status") or "record"
         secondary = record.get("company_id") or ""
         created_at = record.get("created_at") or ""
+        delete_button = ""
+        if record.get("destination_path"):
+            destination_path = html.escape(str(record.get("destination_path")))
+            delete_button = (
+                '<form action="/files/delete" method="post" onsubmit="return confirm(\'Slet fysisk testfil?\')">'
+                f'<input type="hidden" name="relative_path" value="{destination_path}">'
+                '<button class="secondary danger" type="submit">Slet fil</button>'
+                "</form>"
+            )
         rows.append(
             "<tr>"
             f"<td>{html.escape(str(primary))}</td>"
             f"<td>{html.escape(str(secondary))}</td>"
             f"<td>{html.escape(str(created_at))}</td>"
+            f"<td>{delete_button}</td>"
             "</tr>"
         )
-    return "<table><thead><tr><th>Record</th><th>Company</th><th>Created</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+    return "<table><thead><tr><th>Record</th><th>Company</th><th>Created</th><th></th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
 
 
 def _read_jsonl(path: Path, limit: int) -> list[dict[str, object]]:
