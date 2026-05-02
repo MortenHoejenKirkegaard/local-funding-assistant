@@ -1,0 +1,52 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Local runtime state
+logs/
+tmp/
+*.log
+
+# Databases and local service volumes
+data/
+postgres-data/
+qdrant-storage/
+
+# Generated outputs can contain confidential material.
+funding-assistant/outputs/**
+!funding-assistant/outputs/**/.gitkeep
+
+# Source snapshots may contain downloaded funder pages or PDFs.
+funding-assistant/funding/source_snapshots/**
+!funding-assistant/funding/source_snapshots/.gitkeep
+
+# Portfolio and application documents are confidential by default.
+funding-assistant/cases/**/*.doc
+funding-assistant/cases/**/*.docx
+funding-assistant/cases/**/*.xls
+funding-assistant/cases/**/*.xlsx
+funding-assistant/cases/**/*.ppt
+funding-assistant/cases/**/*.pptx
+funding-assistant/cases/**/*.pdf
+funding-assistant/cases/**/*.png
+funding-assistant/cases/**/*.jpg
+funding-assistant/cases/**/*.jpeg
+funding-assistant/cases/**/*.tif
+funding-assistant/cases/**/*.tiff
+
+funding-assistant/applications/historical/**/*.doc
+funding-assistant/applications/historical/**/*.docx
+funding-assistant/applications/historical/**/*.xls
+funding-assistant/applications/historical/**/*.xlsx
+funding-assistant/applications/historical/**/*.ppt
+funding-assistant/applications/historical/**/*.pptx
+funding-assistant/applications/historical/**/*.pdf
+
+# Local Python/Node/Rust build artifacts for future app code.
+.venv/
+venv/
+node_modules/
+dist/
+build/
+target/
