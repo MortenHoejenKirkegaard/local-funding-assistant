@@ -66,6 +66,21 @@ Planlagt brugerflow:
 
 Se [docs/drag-drop-ingestion-agent.md](docs/drag-drop-ingestion-agent.md).
 
+## Validering og tests
+
+Projektet har en foerste let testbase for policy- og path-regler.
+
+Koer tests:
+
+```bash
+python3 -m pytest
+```
+
+Krav og validation loops:
+
+- [docs/requirements/software-requirements.md](docs/requirements/software-requirements.md)
+- [docs/validation-loops.md](docs/validation-loops.md)
+
 ## Foerste tekniske milepaele
 
 1. Korrekt lokal service-stack med PostgreSQL og Qdrant.
