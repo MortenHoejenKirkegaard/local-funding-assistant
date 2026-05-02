@@ -46,9 +46,9 @@ def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str
             <span class="badge">{len(inbox_files)} filer venter</span>
           </div>
 
-          <form class="drop-form" action="/upload" method="post" enctype="multipart/form-data">
-            <label class="dropzone">
-              <input type="file" name="files" multiple>
+          <form id="upload-form" class="drop-form" action="/upload" method="post" enctype="multipart/form-data">
+            <label id="dropzone" class="dropzone">
+              <input id="file-input" type="file" name="files" multiple>
               <strong>Traek filer hertil</strong>
               <span>eller klik for at vaelge filer</span>
             </label>
@@ -158,6 +158,7 @@ def _page(title: str, body: str) -> str:
           </header>
           {body}
         </main>
+        <script>{_javascript()}</script>
       </body>
     </html>
     """
@@ -261,6 +262,52 @@ def _query_escape(value: str) -> str:
     return quote(value, safe="")
 
 
+def _javascript() -> str:
+    return """
+    const form = document.getElementById("upload-form");
+    const input = document.getElementById("file-input");
+    const dropzone = document.getElementById("dropzone");
+
+    if (form && input && dropzone) {
+      const submitIfFilesSelected = () => {
+        if (input.files && input.files.length > 0) {
+          form.submit();
+        }
+      };
+
+      input.addEventListener("change", submitIfFilesSelected);
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          dropzone.classList.add("is-dragging");
+        });
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          dropzone.classList.remove("is-dragging");
+        });
+      });
+
+      dropzone.addEventListener("drop", (event) => {
+        const files = event.dataTransfer.files;
+        if (!files || files.length === 0) {
+          return;
+        }
+
+        const transfer = new DataTransfer();
+        Array.from(files).forEach((file) => transfer.items.add(file));
+        input.files = transfer.files;
+        submitIfFilesSelected();
+      });
+    }
+    """
+
+
 def _css() -> str:
     return """
     :root {
@@ -299,7 +346,8 @@ def _css() -> str:
     .badge { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; color: var(--accent); white-space: nowrap; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .drop-form { display: grid; gap: 14px; }
-    .dropzone { border: 2px dashed #9f9a8d; border-radius: 8px; padding: 32px; display: grid; place-items: center; gap: 6px; text-align: center; cursor: pointer; background: #fbf7ec; }
+    .dropzone { border: 2px dashed #9f9a8d; border-radius: 8px; padding: 32px; display: grid; place-items: center; gap: 6px; text-align: center; cursor: pointer; background: #fbf7ec; transition: border-color 140ms ease, background 140ms ease, transform 140ms ease; }
+    .dropzone.is-dragging { border-color: var(--accent); background: #e7f3ee; transform: translateY(-1px); }
     .dropzone input { display: none; }
     .dropzone span { color: var(--muted); }
     .stack { display: grid; gap: 14px; }
