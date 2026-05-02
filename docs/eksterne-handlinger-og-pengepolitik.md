@@ -24,10 +24,13 @@ Agenten maa ikke:
 - Indsende ansøgninger, formularer eller bindende materiale til eksterne parter.
 - Sende email paa brugerens vegne.
 - Kontakte fonde, partnere, virksomheder eller personer direkte.
+- Dele data, dokumenter, uddrag, prompts, drafts eller metadata med tredjeparter.
+- Uploade filer til eksterne services.
+- Eksportere data til andre apps eller platforme.
 
 ## Output-kanal
 
-Eksternt output skal som udgangspunkt kun ske via Slack.
+Eksternt output maa kun ske via Slack til brugeren.
 
 Slack-beskeder skal vaere korte og ikke-bindende:
 
@@ -43,8 +46,32 @@ Slack-beskeder maa ikke indeholde:
 - Fulde patenttekster
 - Fuld ansøgningstekst
 - Fortrolige dokumentuddrag
+- Dokumentchunks eller lange citater
+- Persondata
+- Kommercielt foelsomme detaljer
 - Kortoplysninger, loginoplysninger eller secrets
 - Juridisk bindende formuleringer sendt til tredjeparter
+
+## Data sharing
+
+Default-reglen er:
+
+```text
+No external data sharing
+```
+
+Den eneste undtagelse er korte Slack-beskeder til brugeren selv.
+
+Det betyder:
+
+- Ingen dokumenter maa deles eksternt.
+- Ingen dokumentuddrag maa sendes eksternt.
+- Ingen fulde drafts maa sendes eksternt.
+- Ingen promptlogs med fortroligt indhold maa sendes eksternt.
+- Ingen metadata om portefoljevirksomheder maa deles med tredjeparter.
+- Ingen filer maa uploades til eksterne analysevaerktoejer.
+- Ingen data maa bruges til modeltraening eller eksterne datasæt.
+- Ingen outputs maa sendes til fonde, partnere, leverandoerer eller andre tredjeparter.
 
 ## API-forbrug
 
@@ -84,12 +111,15 @@ Disse handlinger skal blokeres teknisk:
 | Ekstern formularindsendelse | Forbudt |
 | Email-afsendelse | Forbudt |
 | Direkte besked til ekstern part | Forbudt |
+| Dokumentdeling med tredjeparter | Forbudt |
+| Filupload til eksterne services | Forbudt |
+| Deling af prompts/drafts/metadata | Forbudt |
 
 ## Tilladte handlinger
 
 | Handling | Status |
 | --- | --- |
-| Slack-besked til brugerens egen kanal | Tilladt |
+| Kort Slack-besked til brugerens egen kanal | Tilladt |
 | Dashboard-output | Tilladt |
 | Lokal filindeksering | Tilladt |
 | Lokal databaseopdatering | Tilladt |
@@ -110,6 +140,9 @@ purchase
 agreement
 account_creation
 email_send
+data_share
+file_upload
+third_party_message
 ```
 
 Kun disse maa koere automatisk:

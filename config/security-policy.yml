@@ -15,10 +15,39 @@ network:
   external_actions_default: "deny"
   outbound_allowlist:
     - "api.openai.com"
-    - "github.com"
     - "hooks.slack.com"
   require_approval_for_new_hosts: true
   read_only_web_access: true
+
+data_sharing:
+  default: "deny"
+  allow_external_data_sharing: false
+  allow_public_uploads: false
+  allow_third_party_file_uploads: false
+  allow_prompt_or_document_logging_to_external_services: false
+  allow_training_data_sharing: false
+  allow_clipboard_export_to_external_apps: false
+  only_allowed_external_output_channel: "slack"
+  slack_recipient_must_be_owner: true
+  slack_max_confidentiality: "non_confidential_summary"
+  slack_allowed_content:
+    - "status"
+    - "deadline"
+    - "match_score"
+    - "missing_requirements_summary"
+    - "recommended_next_action"
+    - "dashboard_reference"
+  blocked_content:
+    - "full_documents"
+    - "document_chunks"
+    - "patent_claims"
+    - "full_application_drafts"
+    - "personal_data"
+    - "commercially_sensitive_details"
+    - "card_details"
+    - "login_details"
+    - "api_keys"
+    - "secrets"
 
 spending:
   allow_payments: false
@@ -42,6 +71,7 @@ external_actions:
   allow_email_sending: false
   allow_slack_sending: true
   slack_output_only: true
+  allow_data_sharing_except_owner_slack: false
   require_human_to_send_external_messages: true
   blocked_action_keywords:
     - "buy"
@@ -59,6 +89,11 @@ external_actions:
     - "enter card"
     - "payment"
     - "invoice"
+    - "upload file"
+    - "share document"
+    - "send document"
+    - "export data"
+    - "forward"
 
 notifications:
   email_enabled: false

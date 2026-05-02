@@ -265,7 +265,10 @@ CREATE TABLE action_requests (
     'purchase',
     'agreement',
     'account_creation',
-    'email_send'
+    'email_send',
+    'data_share',
+    'file_upload',
+    'third_party_message'
   )),
   target text,
   company_id text REFERENCES companies(id) ON DELETE SET NULL,

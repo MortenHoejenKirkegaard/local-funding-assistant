@@ -50,7 +50,7 @@ Systemets tilladte rodmappe er:
 
 Se [docs/adgangsrestriktioner.md](docs/adgangsrestriktioner.md) og [config/security-policy.yml](config/security-policy.yml).
 
-Agenten maa ikke bruge kortoplysninger, koebe noget, oprette abonnementer, acceptere vilkaar, underskrive aftaler, indsende ansøgninger eller sende email paa brugerens vegne. Eksternt output er som udgangspunkt kun korte Slack-beskeder til brugeren.
+Agenten maa ikke bruge kortoplysninger, koebe noget, oprette abonnementer, acceptere vilkaar, underskrive aftaler, indsende ansøgninger, sende email, kontakte tredjeparter eller dele data paa brugerens vegne. Eksternt output maa kun vaere korte Slack-beskeder til brugeren.
 
 Se [docs/eksterne-handlinger-og-pengepolitik.md](docs/eksterne-handlinger-og-pengepolitik.md).
 
