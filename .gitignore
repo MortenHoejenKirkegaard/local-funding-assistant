@@ -7,6 +7,10 @@
 logs/
 tmp/
 *.log
+!funding-assistant/system/logs/
+!funding-assistant/system/logs/.gitkeep
+!funding-assistant-test/system/logs/
+!funding-assistant-test/system/logs/.gitkeep
 
 # Databases and local service volumes
 data/
@@ -43,9 +47,30 @@ funding-assistant/applications/historical/**/*.ppt
 funding-assistant/applications/historical/**/*.pptx
 funding-assistant/applications/historical/**/*.pdf
 
+# Test environment input/output may still contain real documents during trials.
+funding-assistant-test/**/*.doc
+funding-assistant-test/**/*.docx
+funding-assistant-test/**/*.xls
+funding-assistant-test/**/*.xlsx
+funding-assistant-test/**/*.ppt
+funding-assistant-test/**/*.pptx
+funding-assistant-test/**/*.pdf
+funding-assistant-test/**/*.png
+funding-assistant-test/**/*.jpg
+funding-assistant-test/**/*.jpeg
+funding-assistant-test/**/*.tif
+funding-assistant-test/**/*.tiff
+funding-assistant-test/**/*.txt
+funding-assistant-test/**/*.md
+funding-assistant-test/**/*.csv
+funding-assistant-test/system/logs/*.jsonl
+funding-assistant-test/system/index/*.jsonl
+
 # Local Python/Node/Rust build artifacts for future app code.
 .venv/
 venv/
+.pycache/
+__pycache__/
 node_modules/
 dist/
 build/

@@ -66,6 +66,34 @@ Planlagt brugerflow:
 
 Se [docs/drag-drop-ingestion-agent.md](docs/drag-drop-ingestion-agent.md).
 
+## Testmiljoe
+
+Der er et separat testmiljoe, som spejler den rigtige mappestruktur:
+
+```text
+funding-assistant-test/
+```
+
+Laeg testfiler i:
+
+```text
+funding-assistant-test/system/inbox
+```
+
+List testfiler:
+
+```bash
+./scripts/test-ingest.sh --list
+```
+
+Indekser en testfil:
+
+```bash
+./scripts/test-ingest.sh --file eksempel.md --company company-01 --document-type clinical
+```
+
+Se [docs/testmiljoe.md](docs/testmiljoe.md).
+
 ## Validering og tests
 
 Projektet har en foerste let testbase for policy- og path-regler.
