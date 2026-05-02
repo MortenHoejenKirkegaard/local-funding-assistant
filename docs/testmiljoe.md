@@ -122,11 +122,17 @@ Dette er et test harness, ikke fuld dokumentparser endnu.
 
 I denne version:
 
-- `.txt`, `.md` og `.csv` giver tekst-preview.
-- Word, Excel, PowerPoint og PDF flyttes, hashes og logges, men fuld parsing kommer i naeste ingestion-MVP.
+- `.txt`, `.md`, `.csv`, `.docx`, `.xlsx` og `.pptx` giver tekst-preview til forslag.
+- PDF flyttes, hashes og logges, men fuld PDF parsing kommer i naeste ingestion-MVP.
 - Ingen API-kald bruges.
 - Ingen Slack-beskeder sendes.
 - Ingen data deles eksternt.
+
+## Auto-index regel
+
+Naar en uploadet fil kan matches med mindst 95% sikkerhed paa baade virksomhed og dokumenttype, bliver den auto-indekseret.
+
+Hvis sikkerheden er under 95%, bliver filen liggende i test-inbox, og dashboardet viser en samlet allokationstabel, hvor du kan rette virksomhed og dokumenttype foer bekraeftelse.
 
 ## Foerste installation
 

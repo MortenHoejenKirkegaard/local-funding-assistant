@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from typing import Annotated, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from funding_assistant.policy import resolve_inside_root
@@ -17,8 +17,13 @@ from funding_assistant.test_ingestion import (
     TEST_INBOX,
     TEST_INDEX,
     TEST_ROOT,
+    add_test_company,
     ingest_test_file,
     list_test_inbox,
+    list_test_companies,
+    remove_test_company,
+    rename_test_company,
+    suggest_indexing,
 )
 
 
@@ -28,6 +33,8 @@ app = FastAPI(title="Local Funding Assistant Test Dashboard")
 @app.get("/", response_class=HTMLResponse)
 def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str:
     inbox_files = list_test_inbox()
+    companies = list_test_companies()
+    suggestions = [suggest_indexing(filename) for filename in inbox_files]
     index_records = _read_jsonl(TEST_INDEX, limit=15)
     event_records = _read_jsonl(TEST_EVENTS, limit=15)
 
@@ -58,16 +65,31 @@ def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str
 
         <section class="grid">
           <div class="panel">
+            <h2>Virksomheder</h2>
+            {_companies_panel(companies)}
+          </div>
+          <div class="panel">
             <h2>Inbox</h2>
             {_inbox_table(inbox_files)}
           </div>
-          <div class="panel">
-            <h2>Index file</h2>
-            {_ingest_form(inbox_files)}
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Bekraeft allokation</h2>
+              <p>Dokumenter under 95% sikkerhed bliver liggende her, indtil du bekraefter placeringen.</p>
+            </div>
+            <span class="badge">{len(suggestions)} forslag</span>
           </div>
+          {_bulk_allocation_form(suggestions, companies)}
         </section>
 
         <section class="grid">
+          <div class="panel">
+            <h2>Index file</h2>
+            {_ingest_form(inbox_files, companies)}
+          </div>
           <div class="panel">
             <h2>Seneste index records</h2>
             {_records_table(index_records)}
@@ -87,6 +109,7 @@ def upload(files: Annotated[list[UploadFile], File()]) -> RedirectResponse:
         return _redirect(error="Ingen filer valgt.")
 
     uploaded = 0
+    auto_indexed = 0
     for upload_file in files:
         if not upload_file.filename:
             continue
@@ -100,7 +123,13 @@ def upload(files: Annotated[list[UploadFile], File()]) -> RedirectResponse:
             shutil.copyfileobj(upload_file.file, output)
         uploaded += 1
 
-    return _redirect(message=f"{uploaded} fil(er) uploadet til test-inbox.")
+        suggestion = suggest_indexing(destination.name)
+        if suggestion.auto_index:
+            ingest_test_file(destination.name, suggestion.suggested_company_id, suggestion.suggested_document_type)
+            auto_indexed += 1
+
+    pending = uploaded - auto_indexed
+    return _redirect(message=f"{uploaded} fil(er) uploadet. {auto_indexed} auto-indekseret, {pending} afventer bekraeftelse.")
 
 
 @app.post("/ingest")
@@ -115,6 +144,56 @@ def ingest(
         return _redirect(error=str(exc))
 
     return _redirect(message=f"Indekseret: {result.destination_path}")
+
+
+@app.post("/bulk-ingest")
+def bulk_ingest(
+    filenames: Annotated[list[str], Form()],
+    company_ids: Annotated[list[str], Form()],
+    document_types: Annotated[list[str], Form()],
+) -> RedirectResponse:
+    if not (len(filenames) == len(company_ids) == len(document_types)):
+        return _redirect(error="Allokationsformularen er inkonsistent.")
+
+    indexed = 0
+    errors = []
+    for filename, company_id, document_type in zip(filenames, company_ids, document_types):
+        try:
+            ingest_test_file(filename, company_id, document_type)
+            indexed += 1
+        except (FileNotFoundError, PermissionError, ValueError) as exc:
+            errors.append(f"{filename}: {exc}")
+
+    if errors:
+        return _redirect(error=f"{indexed} indekseret. Fejl: {' | '.join(errors)}")
+    return _redirect(message=f"{indexed} fil(er) indekseret efter bekraeftelse.")
+
+
+@app.post("/companies/add")
+def add_company(display_name: Annotated[str, Form()]) -> RedirectResponse:
+    try:
+        company = add_test_company(display_name)
+    except ValueError as exc:
+        return _redirect(error=str(exc))
+    return _redirect(message=f"Tilfoejet virksomhed: {company.display_name} ({company.company_id})")
+
+
+@app.post("/companies/rename")
+def rename_company(company_id: Annotated[str, Form()], display_name: Annotated[str, Form()]) -> RedirectResponse:
+    try:
+        rename_test_company(company_id, display_name)
+    except ValueError as exc:
+        return _redirect(error=str(exc))
+    return _redirect(message=f"Omdobt {company_id} til {display_name.strip()}")
+
+
+@app.post("/companies/remove")
+def remove_company(company_id: Annotated[str, Form()]) -> RedirectResponse:
+    try:
+        remove_test_company(company_id)
+    except ValueError as exc:
+        return _redirect(error=str(exc))
+    return _redirect(message=f"Fjernet virksomhed: {company_id}")
 
 
 @app.get("/health")
@@ -178,18 +257,75 @@ def _inbox_table(filenames: list[str]) -> str:
     return f"<table><thead><tr><th>Filnavn</th></tr></thead><tbody>{rows}</tbody></table>"
 
 
-def _ingest_form(filenames: list[str]) -> str:
+def _companies_panel(companies: list[object]) -> str:
+    rows = []
+    for company in companies:
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(company.company_id)}</td>"
+            "<td>"
+            '<form class="inline-form" action="/companies/rename" method="post">'
+            f'<input type="hidden" name="company_id" value="{html.escape(company.company_id)}">'
+            f'<input name="display_name" value="{html.escape(company.display_name)}">'
+            '<button type="submit">Omdob</button>'
+            "</form>"
+            "</td>"
+            "<td>"
+            '<form action="/companies/remove" method="post" onsubmit="return confirm(\'Fjern virksomheden fra testmiljoeet?\')">'
+            f'<input type="hidden" name="company_id" value="{html.escape(company.company_id)}">'
+            '<button class="secondary danger" type="submit">Fjern</button>'
+            "</form>"
+            "</td>"
+            "</tr>"
+        )
+
+    table = "<table><thead><tr><th>ID</th><th>Navn</th><th></th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+    return (
+        table
+        + """
+        <form class="inline-form add-company" action="/companies/add" method="post">
+          <input name="display_name" placeholder="Ny virksomhed">
+          <button type="submit">Tilfoej</button>
+        </form>
+        """
+    )
+
+
+def _bulk_allocation_form(suggestions: list[object], companies: list[object]) -> str:
+    if not suggestions:
+        return '<p class="muted">Ingen filer afventer allokation.</p>'
+
+    rows = []
+    for suggestion in suggestions:
+        company_options = _company_options(companies, suggestion.suggested_company_id)
+        type_options = _document_type_options(suggestion.suggested_document_type)
+        confidence_class = "high-confidence" if suggestion.confidence >= 95 else "needs-review"
+        rows.append(
+            "<tr>"
+            f"<td><input type=\"hidden\" name=\"filenames\" value=\"{html.escape(suggestion.filename)}\">{html.escape(suggestion.filename)}</td>"
+            f"<td><select name=\"company_ids\">{company_options}</select></td>"
+            f"<td><select name=\"document_types\">{type_options}</select></td>"
+            f"<td><span class=\"confidence {confidence_class}\">{suggestion.confidence}%</span></td>"
+            f"<td>{html.escape(suggestion.rationale)}</td>"
+            "</tr>"
+        )
+
+    return (
+        '<form action="/bulk-ingest" method="post" onsubmit="return confirm(\'Bekraeft allokation for alle viste dokumenter?\')">'
+        "<table><thead><tr><th>Dokument</th><th>Virksomhed</th><th>Dokumenttype</th><th>Sikkerhed</th><th>Grundlag</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+        '<button type="submit">Bekraeft allokation</button>'
+        "</form>"
+    )
+
+
+def _ingest_form(filenames: list[str], companies: list[object]) -> str:
     if not filenames:
         return '<p class="muted">Upload en fil foerst.</p>'
 
     file_options = "".join(f'<option value="{html.escape(name)}">{html.escape(name)}</option>' for name in filenames)
-    company_options = "".join(
-        f'<option value="company-{index:02d}">company-{index:02d}</option>' for index in range(1, 9)
-    )
-    type_options = "".join(
-        f'<option value="{html.escape(document_type)}">{html.escape(document_type)}</option>'
-        for document_type in sorted(CATEGORY_TO_FOLDER)
-    )
+    company_options = _company_options(companies)
+    type_options = _document_type_options()
 
     return f"""
     <form class="stack" action="/ingest" method="post">
@@ -205,6 +341,23 @@ def _ingest_form(filenames: list[str]) -> str:
       <button type="submit">Index file</button>
     </form>
     """
+
+
+def _company_options(companies: list[object], selected_company_id: str = "") -> str:
+    options = []
+    for company in companies:
+        selected = " selected" if company.company_id == selected_company_id else ""
+        label = f"{company.company_id} - {company.display_name}"
+        options.append(f'<option value="{html.escape(company.company_id)}"{selected}>{html.escape(label)}</option>')
+    return "".join(options)
+
+
+def _document_type_options(selected_document_type: str = "") -> str:
+    options = []
+    for document_type in sorted(CATEGORY_TO_FOLDER):
+        selected = " selected" if document_type == selected_document_type else ""
+        options.append(f'<option value="{html.escape(document_type)}"{selected}>{html.escape(document_type)}</option>')
+    return "".join(options)
 
 
 def _records_table(records: list[dict[str, object]]) -> str:
@@ -352,9 +505,17 @@ def _css() -> str:
     .dropzone span { color: var(--muted); }
     .stack { display: grid; gap: 14px; }
     label { display: grid; gap: 7px; color: var(--muted); font-size: 14px; }
-    select, button { min-height: 42px; border-radius: 6px; border: 1px solid var(--line); font: inherit; }
-    select { background: white; color: var(--ink); padding: 0 10px; }
+    select, button, input { min-height: 42px; border-radius: 6px; border: 1px solid var(--line); font: inherit; }
+    select, input { background: white; color: var(--ink); padding: 0 10px; width: 100%; }
     button { background: var(--accent); color: white; border: 0; font-weight: 700; cursor: pointer; padding: 0 16px; }
+    button.secondary { background: #e9e3d5; color: var(--ink); }
+    button.danger { color: #8a2616; }
+    .inline-form { display: flex; gap: 8px; align-items: center; }
+    .inline-form input { min-width: 160px; }
+    .add-company { margin-top: 14px; }
+    .confidence { display: inline-flex; align-items: center; min-width: 54px; justify-content: center; border-radius: 999px; padding: 5px 8px; font-weight: 700; }
+    .confidence.high-confidence { background: #e7f3ee; color: #0e513f; }
+    .confidence.needs-review { background: #f8e4dd; color: #7c2d1c; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 10px 6px; vertical-align: top; }
     th { color: var(--muted); font-weight: 700; }

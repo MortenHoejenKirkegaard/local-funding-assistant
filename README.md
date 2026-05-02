@@ -94,6 +94,8 @@ Indekser en testfil:
 
 Se [docs/testmiljoe.md](docs/testmiljoe.md).
 
+Uploadede dokumenter auto-indekseres kun, hvis test-agenten er mindst 95% sikker paa baade virksomhed og dokumenttype. Ellers skal allokationen bekraeftes i dashboardet.
+
 Start test-dashboard:
 
 ```bash
