@@ -286,6 +286,32 @@ CREATE TABLE action_requests (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE external_collaborators (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  display_name text NOT NULL,
+  email text,
+  status text NOT NULL DEFAULT 'inactive'
+    CHECK (status IN ('active', 'inactive', 'revoked')),
+  scoped_root_path text NOT NULL,
+  company_id text REFERENCES companies(id) ON DELETE SET NULL,
+  project_id uuid REFERENCES projects(id) ON DELETE SET NULL,
+  allowed_flow text NOT NULL DEFAULT 'upload_only',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE external_collaborator_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_collaborator_id uuid NOT NULL REFERENCES external_collaborators(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  target_path text,
+  decision text NOT NULL DEFAULT 'blocked'
+    CHECK (decision IN ('allowed', 'requires_owner_review', 'blocked')),
+  reason text NOT NULL,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE INDEX idx_projects_company_id ON projects(company_id);
 CREATE INDEX idx_documents_company_id ON documents(company_id);
 CREATE INDEX idx_documents_type ON documents(document_type);
@@ -305,3 +331,5 @@ CREATE INDEX idx_ingestion_jobs_selected_company ON ingestion_jobs(selected_comp
 CREATE INDEX idx_ingestion_job_events_job_time ON ingestion_job_events(ingestion_job_id, created_at DESC);
 CREATE INDEX idx_action_requests_decision_time ON action_requests(decision, created_at DESC);
 CREATE INDEX idx_action_requests_type_time ON action_requests(action_type, created_at DESC);
+CREATE INDEX idx_external_collaborators_status ON external_collaborators(status);
+CREATE INDEX idx_external_collaborator_events_time ON external_collaborator_events(external_collaborator_id, created_at DESC);

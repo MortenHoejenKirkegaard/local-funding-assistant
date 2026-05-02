@@ -10,6 +10,31 @@ filesystem:
   deny_symlink_escape: true
   quarantine_dropped_files: true
 
+external_collaborators:
+  enabled: false
+  default_access: "deny"
+  require_named_identity: true
+  require_case_scope: true
+  allowed_root_template: "/Users/mortenkirkegaard/Desktop/Codex Access/funding-assistant/external/{external_user_id}"
+  can_only_follow_assigned_flow: true
+  allow_dashboard_admin: false
+  allow_agent_controls: false
+  allow_api_calls: false
+  allow_scraper_access: false
+  allow_writing_agent: false
+  allow_cross_company_access: false
+  allow_downloads: false
+  allow_delete: false
+  allow_rename: false
+  allow_reallocation: false
+  allowed_actions:
+    - "view_assigned_flow"
+    - "upload_to_assigned_folder"
+    - "answer_flow_questions"
+    - "submit_to_owner_review"
+  all_submissions_require_owner_review: true
+  external_routes_must_start_with: "/external/"
+
 network:
   api_calls_default: "ask_first"
   external_actions_default: "deny"

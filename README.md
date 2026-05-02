@@ -104,6 +104,8 @@ Softfunding scraperen er sat til weekly schedule i [config/scheduler.yml](config
 
 Testmiljoeets brugerflows skal foelge det egentlige setup. Se [docs/production-parity.md](docs/production-parity.md).
 
+Ekstern adgang er ikke aktiv. Hvis det senere aktiveres, maa eksterne kun tilgaa deres egen scoped mappe og et tildelt flow. Se [docs/ekstern-adgangspolitik.md](docs/ekstern-adgangspolitik.md).
+
 Start test-dashboard:
 
 ```bash

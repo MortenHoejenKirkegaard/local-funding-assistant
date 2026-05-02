@@ -14,5 +14,6 @@ Det gaelder aktuelt:
 - Kobling af applications til intern virksomhed, ekstern virksomhed eller ukendt.
 - Lokal sproglig pattern-analyse uden API-kald.
 - Weekly softfunding screening som default schedule.
+- Ekstern collaborator access maa kun ske via scoped folder og assigned flow.
 
 Testmiljoeet maa gerne bruge simplere storage og parsere, men brugerflow og sikkerhedsregler skal svare til produktion.
