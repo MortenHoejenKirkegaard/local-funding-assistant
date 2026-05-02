@@ -54,6 +54,8 @@ Appen aabner paa:
 http://localhost:3000
 ```
 
+Foerste gang dashboardet aabnes, skal du vaelge om testmiljoeet skal arbejde med en eller flere virksomheder. Hvis du vaelger flere, bliver du bedt om at navngive dem i samme flow.
+
 Laeg en testfil i:
 
 ```text
@@ -140,6 +142,26 @@ Virksomhed foreslaas ud fra:
 - Virksomhedens navn i `index_manifest.yml`
 - Aliaser i manifestet
 - Filnavn og tekst-preview fra understoettede dokumenttyper
+
+## Skriveagent
+
+Dashboardet har en lokal skriveagent-sektion til historiske funding applications.
+
+Du kan uploade:
+
+- Successful / grant applications
+- Unsuccessful / rejected applications
+- Applications fra virksomheder i systemet
+- Applications fra eksterne eller ukendte virksomheder
+
+Skriveagenten laver en lokal sproglig analyse af tekst-preview og sammenligner:
+
+- Ord og formuleringer der oftere ses i successfulde applications
+- Ord og formuleringer der oftere ses i unsuccessfulde applications
+- Mønstre der kun ses i grant-positive examples
+- Mønstre der kun ses i rejected examples
+
+Ingen API-kald bruges i denne testversion.
 
 ## Foerste installation
 

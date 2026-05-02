@@ -18,6 +18,8 @@ TEST_ROOT = PROJECT_ROOT / "funding-assistant-test"
 TEST_INBOX = TEST_ROOT / "system" / "inbox"
 TEST_INDEX = TEST_ROOT / "system" / "index" / "documents-index.jsonl"
 TEST_EVENTS = TEST_ROOT / "system" / "logs" / "ingestion-events.jsonl"
+TEST_RUNTIME_CONFIG = TEST_ROOT / "system" / "config" / "runtime.json"
+TEST_APPLICATION_INDEX = TEST_ROOT / "applications" / "applications-index.jsonl"
 
 CATEGORY_TO_FOLDER = {
     "profile": "00_profile",
@@ -43,6 +45,11 @@ DOCUMENT_KEYWORDS = {
     "pitch_investor": ["pitch", "investor", "deck", "memo"],
     "applications": ["application", "grant", "funding", "budget", "milestone"],
     "raw_inbox": ["raw", "misc", "unknown"],
+}
+
+WRITING_STOPWORDS = {
+    "the", "and", "for", "with", "that", "this", "from", "are", "will", "can", "has", "have",
+    "der", "det", "den", "som", "med", "til", "for", "har", "kan", "skal", "fra", "vil", "paa",
 }
 
 
@@ -74,6 +81,20 @@ class IndexSuggestion:
     confidence: int
     rationale: str
     auto_index: bool
+
+
+@dataclass(frozen=True)
+class ApplicationRecord:
+    status: str
+    source_path: str
+    destination_path: str
+    outcome: str
+    company_id: str
+    external_company_name: str
+    sha256: str
+    file_size_bytes: int
+    text_preview: str
+    created_at: str
 
 
 def ingest_test_file(filename: str, company_id: str, document_type: str) -> IngestionResult:
@@ -177,6 +198,44 @@ def add_test_company(display_name: str) -> TestCompany:
     return TestCompany(company_id=company_id, display_name=cleaned_name)
 
 
+def configure_test_workspace(company_names: list[str]) -> None:
+    cleaned_names = [name.strip() for name in company_names if name.strip()]
+    if not cleaned_names:
+        raise ValueError("At least one company name is required.")
+
+    cases_root = TEST_ROOT / "cases"
+    archive_root = TEST_ROOT / "system" / "quarantine" / f"cases-reset-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    existing_case_dirs = [path for path in cases_root.glob("company-*") if path.is_dir()]
+    if existing_case_dirs:
+        archive_root.mkdir(parents=True, exist_ok=True)
+        for path in existing_case_dirs:
+            shutil.move(str(path), str(archive_root / path.name))
+
+    for index, name in enumerate(cleaned_names, start=1):
+        company_id = f"company-{index:02d}"
+        company_dir = cases_root / company_id
+        _create_company_structure(company_dir)
+        _write_manifest(company_dir / "index_manifest.yml", company_id, name)
+
+    _append_json(
+        TEST_RUNTIME_CONFIG,
+        {
+            "configured": True,
+            "company_count": len(cleaned_names),
+            "configured_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+
+def is_test_workspace_configured() -> bool:
+    if not TEST_RUNTIME_CONFIG.exists():
+        return False
+    try:
+        return bool(json.loads(TEST_RUNTIME_CONFIG.read_text(encoding="utf-8")).get("configured"))
+    except json.JSONDecodeError:
+        return False
+
+
 def rename_test_company(company_id: str, display_name: str) -> None:
     cleaned_name = display_name.strip()
     if not cleaned_name:
@@ -200,6 +259,63 @@ def remove_test_company(company_id: str) -> None:
         raise ValueError("Company contains test documents and cannot be removed.")
 
     shutil.rmtree(company_dir)
+
+
+def ingest_application_file(
+    source_path: Path,
+    outcome: str,
+    company_id: str = "external",
+    external_company_name: str = "",
+) -> ApplicationRecord:
+    if outcome not in {"successful", "unsuccessful"}:
+        raise ValueError("Outcome must be successful or unsuccessful.")
+    if company_id not in {"external", "unknown"}:
+        _validate_company(company_id)
+
+    source_path = resolve_inside_root(source_path, PROJECT_ROOT)
+    if not source_path.exists() or not source_path.is_file():
+        raise FileNotFoundError(f"Application file not found: {source_path}")
+
+    destination_dir = TEST_ROOT / "applications" / outcome
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination_path = _deduplicated_destination(destination_dir / source_path.name)
+    file_hash = _sha256(source_path)
+    file_size = source_path.stat().st_size
+    preview = _extract_preview(source_path)
+
+    shutil.move(str(source_path), str(destination_path))
+
+    record = ApplicationRecord(
+        status="indexed",
+        source_path=str(source_path.relative_to(PROJECT_ROOT)),
+        destination_path=str(destination_path.relative_to(PROJECT_ROOT)),
+        outcome=outcome,
+        company_id=company_id,
+        external_company_name=external_company_name.strip(),
+        sha256=file_hash,
+        file_size_bytes=file_size,
+        text_preview=preview,
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+    _append_jsonl(TEST_APPLICATION_INDEX, asdict(record))
+    return record
+
+
+def analyze_application_patterns() -> dict[str, object]:
+    records = _read_jsonl(TEST_APPLICATION_INDEX)
+    successful = [record for record in records if record.get("outcome") == "successful"]
+    unsuccessful = [record for record in records if record.get("outcome") == "unsuccessful"]
+    successful_terms = _top_terms(" ".join(str(record.get("text_preview", "")) for record in successful))
+    unsuccessful_terms = _top_terms(" ".join(str(record.get("text_preview", "")) for record in unsuccessful))
+
+    return {
+        "successful_count": len(successful),
+        "unsuccessful_count": len(unsuccessful),
+        "successful_language_signals": successful_terms[:12],
+        "unsuccessful_language_signals": unsuccessful_terms[:12],
+        "grant_positive_only_terms": [term for term in successful_terms if term not in unsuccessful_terms][:8],
+        "rejection_only_terms": [term for term in unsuccessful_terms if term not in successful_terms][:8],
+    }
 
 
 def _validate_local_write() -> None:
@@ -428,6 +544,34 @@ def _append_jsonl(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as file:
         file.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+
+def _append_json(path: Path, payload: dict[str, object]) -> None:
+    resolve_inside_root(path, PROJECT_ROOT)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
+
+
+def _read_jsonl(path: Path) -> list[dict[str, object]]:
+    if not path.exists():
+        return []
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return records
+
+
+def _top_terms(text: str) -> list[str]:
+    words = re.findall(r"[a-zA-ZæøåÆØÅ]{4,}", text.lower())
+    counts: dict[str, int] = {}
+    for word in words:
+        if word in WRITING_STOPWORDS:
+            continue
+        counts[word] = counts.get(word, 0) + 1
+    return [word for word, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
 
 
 def main() -> None:

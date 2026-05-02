@@ -74,6 +74,8 @@ Der er et separat testmiljoe, som spejler den rigtige mappestruktur:
 funding-assistant-test/
 ```
 
+Foerste gang test-dashboardet startes, vaelger du om miljoeet skal haandtere en eller flere virksomheder og navngiver dem.
+
 Laeg testfiler i:
 
 ```text
@@ -95,6 +97,8 @@ Indekser en testfil:
 Se [docs/testmiljoe.md](docs/testmiljoe.md).
 
 Uploadede dokumenter auto-indekseres kun, hvis test-agenten er mindst 95% sikker paa baade virksomhed og dokumenttype. Ellers skal allokationen bekraeftes i dashboardet.
+
+Dashboardet har ogsaa en lokal skriveagent-sektion, hvor successfulde og ikke-successfulde funding applications kan uploades og kobles til interne eller eksterne virksomheder.
 
 Start test-dashboard:
 

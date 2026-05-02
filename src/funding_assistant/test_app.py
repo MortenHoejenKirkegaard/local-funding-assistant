@@ -18,7 +18,11 @@ from funding_assistant.test_ingestion import (
     TEST_INDEX,
     TEST_ROOT,
     add_test_company,
+    analyze_application_patterns,
+    configure_test_workspace,
+    ingest_application_file,
     ingest_test_file,
+    is_test_workspace_configured,
     list_test_inbox,
     list_test_companies,
     remove_test_company,
@@ -32,11 +36,15 @@ app = FastAPI(title="Local Funding Assistant Test Dashboard")
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str:
+    if not is_test_workspace_configured():
+        return onboarding(message=message, error=error)
+
     inbox_files = list_test_inbox()
     companies = list_test_companies()
     suggestions = [suggest_indexing(filename) for filename in inbox_files]
     index_records = _read_jsonl(TEST_INDEX, limit=15)
     event_records = _read_jsonl(TEST_EVENTS, limit=15)
+    writing_patterns = analyze_application_patterns()
 
     return _page(
         title="Test Dashboard",
@@ -99,8 +107,62 @@ def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str
             {_records_table(event_records)}
           </div>
         </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Skriveagent</h2>
+              <p>Upload successfulde og ikke-successfulde funding applications. De kan kobles til en intern virksomhed eller markeres som ekstern/ukendt.</p>
+            </div>
+            <span class="badge">Local language analysis</span>
+          </div>
+          {_application_upload_form(companies)}
+          {_writing_patterns_panel(writing_patterns)}
+        </section>
         """,
     )
+
+
+@app.get("/setup", response_class=HTMLResponse)
+def onboarding(message: Optional[str] = None, error: Optional[str] = None) -> str:
+    return _page(
+        title="Setup",
+        body=f"""
+        {_notice(message, "success")}
+        {_notice(error, "error")}
+        <section class="panel setup-panel">
+          <h2>Foerste setup</h2>
+          <p>Vaelg om testmiljoeet skal haandtere information for en eller flere virksomheder.</p>
+          <form class="stack" action="/setup" method="post">
+            <label>Antal virksomheder
+              <input id="company-count" name="company_count" type="number" min="1" max="25" value="1">
+            </label>
+            <div id="company-name-fields" class="stack">
+              <label>Virksomhed 1
+                <input name="company_names" placeholder="Virksomhedsnavn" required>
+              </label>
+            </div>
+            <button type="submit">Opret testmiljoe</button>
+          </form>
+        </section>
+        """,
+    )
+
+
+@app.post("/setup")
+def setup_workspace(
+    company_count: Annotated[int, Form()],
+    company_names: Annotated[list[str], Form()],
+) -> RedirectResponse:
+    names = [name.strip() for name in company_names[:company_count] if name.strip()]
+    if len(names) != company_count:
+        return _redirect(error="Udfyld navn for alle virksomheder.")
+
+    try:
+        configure_test_workspace(names)
+    except ValueError as exc:
+        return _redirect(error=str(exc))
+    return _redirect(message=f"Testmiljoe oprettet med {len(names)} virksomhed(er).")
 
 
 @app.post("/upload")
@@ -130,6 +192,33 @@ def upload(files: Annotated[list[UploadFile], File()]) -> RedirectResponse:
 
     pending = uploaded - auto_indexed
     return _redirect(message=f"{uploaded} fil(er) uploadet. {auto_indexed} auto-indekseret, {pending} afventer bekraeftelse.")
+
+
+@app.post("/applications/upload")
+def upload_application(
+    file: Annotated[UploadFile, File()],
+    outcome: Annotated[str, Form()],
+    company_id: Annotated[str, Form()],
+    external_company_name: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    if not file.filename:
+        return _redirect(error="Ingen application-fil valgt.")
+
+    safe_name = Path(file.filename).name
+    staging_dir = TEST_ROOT / "system" / "inbox" / "applications"
+    staging_path = _deduplicated_inbox_path(staging_dir / safe_name)
+    resolve_inside_root(staging_path, PROJECT_ROOT)
+    staging_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with staging_path.open("wb") as output:
+        shutil.copyfileobj(file.file, output)
+
+    try:
+        record = ingest_application_file(staging_path, outcome, company_id, external_company_name)
+    except (FileNotFoundError, PermissionError, ValueError) as exc:
+        return _redirect(error=str(exc))
+
+    return _redirect(message=f"Application indekseret: {record.outcome} / {record.company_id}")
 
 
 @app.post("/ingest")
@@ -319,6 +408,58 @@ def _bulk_allocation_form(suggestions: list[object], companies: list[object]) ->
     )
 
 
+def _application_upload_form(companies: list[object]) -> str:
+    company_options = _company_options(companies)
+    company_options += '<option value="external">External company</option><option value="unknown">Unknown/not linked</option>'
+    return f"""
+    <form class="stack application-form" action="/applications/upload" method="post" enctype="multipart/form-data">
+      <label>Application file
+        <input type="file" name="file" required>
+      </label>
+      <label>Outcome
+        <select name="outcome">
+          <option value="successful">Successful / grant</option>
+          <option value="unsuccessful">Unsuccessful / rejected</option>
+        </select>
+      </label>
+      <label>Virksomhed
+        <select name="company_id">{company_options}</select>
+      </label>
+      <label>Ekstern virksomhedsnavn, hvis relevant
+        <input name="external_company_name" placeholder="Kun hvis den ikke findes i systemet">
+      </label>
+      <button type="submit">Upload application</button>
+    </form>
+    """
+
+
+def _writing_patterns_panel(patterns: dict[str, object]) -> str:
+    successful_terms = ", ".join(str(term) for term in patterns.get("successful_language_signals", [])) or "Ingen endnu"
+    unsuccessful_terms = ", ".join(str(term) for term in patterns.get("unsuccessful_language_signals", [])) or "Ingen endnu"
+    positive_only = ", ".join(str(term) for term in patterns.get("grant_positive_only_terms", [])) or "Ingen endnu"
+    rejection_only = ", ".join(str(term) for term in patterns.get("rejection_only_terms", [])) or "Ingen endnu"
+    return f"""
+    <div class="pattern-grid">
+      <div>
+        <h3>Successful ({patterns.get("successful_count", 0)})</h3>
+        <p>{html.escape(successful_terms)}</p>
+      </div>
+      <div>
+        <h3>Unsuccessful ({patterns.get("unsuccessful_count", 0)})</h3>
+        <p>{html.escape(unsuccessful_terms)}</p>
+      </div>
+      <div>
+        <h3>Grant-positive only</h3>
+        <p>{html.escape(positive_only)}</p>
+      </div>
+      <div>
+        <h3>Rejected only</h3>
+        <p>{html.escape(rejection_only)}</p>
+      </div>
+    </div>
+    """
+
+
 def _ingest_form(filenames: list[str], companies: list[object]) -> str:
     if not filenames:
         return '<p class="muted">Upload en fil foerst.</p>'
@@ -458,6 +599,28 @@ def _javascript() -> str:
         submitIfFilesSelected();
       });
     }
+
+    const companyCount = document.getElementById("company-count");
+    const companyFields = document.getElementById("company-name-fields");
+    if (companyCount && companyFields) {
+      const renderCompanyFields = () => {
+        const count = Math.max(1, Math.min(25, parseInt(companyCount.value || "1", 10)));
+        const existing = Array.from(companyFields.querySelectorAll("input")).map((field) => field.value);
+        companyFields.innerHTML = "";
+        for (let index = 0; index < count; index += 1) {
+          const label = document.createElement("label");
+          label.textContent = `Virksomhed ${index + 1}`;
+          const input = document.createElement("input");
+          input.name = "company_names";
+          input.required = true;
+          input.placeholder = "Virksomhedsnavn";
+          input.value = existing[index] || "";
+          label.appendChild(input);
+          companyFields.appendChild(label);
+        }
+      };
+      companyCount.addEventListener("input", renderCompanyFields);
+    }
     """
 
 
@@ -489,6 +652,7 @@ def _css() -> str:
     .eyebrow { margin: 0 0 8px; color: var(--accent); text-transform: uppercase; font-size: 12px; letter-spacing: 0; font-weight: 700; }
     h1 { margin: 0; font-size: 42px; line-height: 1.05; }
     h2 { margin: 0 0 14px; font-size: 20px; }
+    h3 { margin: 0 0 8px; font-size: 15px; }
     p { color: var(--muted); }
     .status-card, .panel { background: rgba(255, 253, 247, 0.92); border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 8px; }
     .status-card { padding: 16px; min-width: 260px; }
@@ -513,6 +677,10 @@ def _css() -> str:
     .inline-form { display: flex; gap: 8px; align-items: center; }
     .inline-form input { min-width: 160px; }
     .add-company { margin-top: 14px; }
+    .application-form { margin-bottom: 18px; }
+    .pattern-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .pattern-grid > div { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fbf7ec; }
+    .setup-panel { max-width: 760px; }
     .confidence { display: inline-flex; align-items: center; min-width: 54px; justify-content: center; border-radius: 999px; padding: 5px 8px; font-weight: 700; }
     .confidence.high-confidence { background: #e7f3ee; color: #0e513f; }
     .confidence.needs-review { background: #f8e4dd; color: #7c2d1c; }
@@ -526,7 +694,7 @@ def _css() -> str:
 
     @media (max-width: 820px) {
       main { width: min(100vw - 20px, 1180px); padding-top: 18px; }
-      .hero, .grid, .panel-header { display: grid; grid-template-columns: 1fr; }
+      .hero, .grid, .panel-header, .pattern-grid { display: grid; grid-template-columns: 1fr; }
       h1 { font-size: 34px; }
       .status-card { min-width: 0; }
     }
