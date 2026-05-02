@@ -207,6 +207,52 @@ CREATE TABLE api_usage_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE ingestion_jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  status text NOT NULL DEFAULT 'pending_user_selection'
+    CHECK (status IN (
+      'pending_user_selection',
+      'approved',
+      'moving',
+      'parsing',
+      'indexing',
+      'indexed',
+      'failed',
+      'cancelled'
+    )),
+  original_filename text NOT NULL,
+  original_path text,
+  dropzone_path text NOT NULL,
+  destination_path text,
+  sha256 text,
+  file_size_bytes bigint,
+  file_extension text,
+  mime_type text,
+  suggested_company_id text REFERENCES companies(id) ON DELETE SET NULL,
+  selected_company_id text REFERENCES companies(id) ON DELETE SET NULL,
+  suggested_project_id uuid REFERENCES projects(id) ON DELETE SET NULL,
+  selected_project_id uuid REFERENCES projects(id) ON DELETE SET NULL,
+  suggested_document_type text,
+  selected_document_type text,
+  confidentiality text NOT NULL DEFAULT 'confidential'
+    CHECK (confidentiality IN ('internal', 'confidential', 'highly_confidential')),
+  user_approved_at timestamptz,
+  indexed_document_id uuid REFERENCES documents(id) ON DELETE SET NULL,
+  error_message text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE ingestion_job_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ingestion_job_id uuid NOT NULL REFERENCES ingestion_jobs(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  message text,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE INDEX idx_projects_company_id ON projects(company_id);
 CREATE INDEX idx_documents_company_id ON documents(company_id);
 CREATE INDEX idx_documents_type ON documents(document_type);
@@ -221,3 +267,6 @@ CREATE INDEX idx_notifications_status ON notifications(status);
 CREATE INDEX idx_audit_events_company_time ON audit_events(company_id, created_at DESC);
 CREATE INDEX idx_api_usage_events_company_time ON api_usage_events(company_id, created_at DESC);
 CREATE INDEX idx_api_usage_events_task_time ON api_usage_events(task_type, created_at DESC);
+CREATE INDEX idx_ingestion_jobs_status_time ON ingestion_jobs(status, created_at DESC);
+CREATE INDEX idx_ingestion_jobs_selected_company ON ingestion_jobs(selected_company_id, created_at DESC);
+CREATE INDEX idx_ingestion_job_events_job_time ON ingestion_job_events(ingestion_job_id, created_at DESC);

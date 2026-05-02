@@ -11,6 +11,8 @@ Projektet indeholder nu:
 - Datamodel og indeksdesign.
 - Matchmaking scoring-framework.
 - Design for Mac control app og API-budgetstyring.
+- Adgangsrestriktioner, saa systemet kun maa arbejde inde i denne projektmappe.
+- Design for drag-and-drop ingestion-agent med brugerbekraeftelse foer indeksering.
 - Start/stop/status scripts til den lokale service-stack.
 
 ## Daglig brug
@@ -38,6 +40,26 @@ Stop services:
 Fortrolige dokumenter skal placeres under `funding-assistant/cases/company-*/...` eller `funding-assistant/applications/historical/...`.
 
 `.gitignore` er sat op til ikke at versionere Word, Excel, PowerPoint, PDF, billeder, runtime data, outputs, logs eller secrets. Kode, schema, dokumentation og manifests kan versioneres.
+
+Systemets tilladte rodmappe er:
+
+```text
+/Users/mortenkirkegaard/Desktop/Codex Access
+```
+
+Se [docs/adgangsrestriktioner.md](docs/adgangsrestriktioner.md) og [config/security-policy.yml](config/security-policy.yml).
+
+## Drag-and-drop ingestion
+
+Planlagt brugerflow:
+
+1. Traek filer ind i dashboardet.
+2. Systemet kopierer dem til `funding-assistant/system/inbox`.
+3. Systemet foreslaar virksomhed, projekt og dokumenttype.
+4. Brugeren bekraefter placering.
+5. Systemet flytter filen til korrekt case-mappe og indekserer.
+
+Se [docs/drag-drop-ingestion-agent.md](docs/drag-drop-ingestion-agent.md).
 
 ## Foerste tekniske milepaele
 
