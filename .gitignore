@@ -63,11 +63,15 @@ funding-assistant-test/**/*.tiff
 funding-assistant-test/**/*.txt
 funding-assistant-test/**/*.md
 funding-assistant-test/**/*.csv
+funding-assistant-test/cases/*
+!funding-assistant-test/cases/.gitkeep
 funding-assistant-test/applications/**/*.jsonl
 funding-assistant-test/applications/**/*.json
 funding-assistant-test/system/logs/*.jsonl
 funding-assistant-test/system/index/*.jsonl
 funding-assistant-test/system/config/runtime.json
+funding-assistant-test/system/quarantine/**
+!funding-assistant-test/system/quarantine/.gitkeep
 
 # Local Python/Node/Rust build artifacts for future app code.
 .venv/
