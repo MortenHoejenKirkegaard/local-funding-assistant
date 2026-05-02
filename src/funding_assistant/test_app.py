@@ -41,13 +41,42 @@ def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str
 
     inbox_files = list_test_inbox()
     companies = list_test_companies()
-    suggestions = [suggest_indexing(filename) for filename in inbox_files]
     index_records = _read_jsonl(TEST_INDEX, limit=15)
-    event_records = _read_jsonl(TEST_EVENTS, limit=15)
     writing_patterns = analyze_application_patterns()
+    application_summary = (
+        f"{writing_patterns.get('successful_count', 0)} successful / "
+        f"{writing_patterns.get('unsuccessful_count', 0)} unsuccessful"
+    )
 
     return _page(
         title="Test Dashboard",
+        body=f"""
+        {_notice(message, "success")}
+        {_notice(error, "error")}
+
+        <section class="dashboard-grid">
+          {_nav_card("Uploads", "/upload", f"{len(inbox_files)} filer afventer", "Upload, bulk-allokation og indexing.")}
+          {_nav_card("Ansogninger", "/applications", application_summary, "Skriveagent og application patterns.")}
+          {_nav_card("Virksomheder", "/companies", f"{len(companies)} aktive", "Navne, aliases og projektakronymer.")}
+          {_nav_card("Database", "/database", f"{len(index_records)} seneste records", "Index records og event log.")}
+          {_nav_card("System", "/system", "Local only", "Status, sikkerhedsregler og schedule.")}
+        </section>
+        """,
+        active="dashboard",
+    )
+
+
+@app.get("/upload", response_class=HTMLResponse)
+def upload_page(message: Optional[str] = None, error: Optional[str] = None) -> str:
+    if not is_test_workspace_configured():
+        return onboarding(message=message, error=error)
+
+    inbox_files = list_test_inbox()
+    companies = list_test_companies()
+    suggestions = [suggest_indexing(filename) for filename in inbox_files]
+
+    return _page(
+        title="Upload",
         body=f"""
         {_notice(message, "success")}
         {_notice(error, "error")}
@@ -73,12 +102,12 @@ def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str
 
         <section class="grid">
           <div class="panel">
-            <h2>Virksomheder</h2>
-            {_companies_panel(companies)}
-          </div>
-          <div class="panel">
             <h2>Inbox</h2>
             {_inbox_table(inbox_files)}
+          </div>
+          <div class="panel">
+            <h2>Index file</h2>
+            {_ingest_form(inbox_files, companies)}
           </div>
         </section>
 
@@ -92,21 +121,44 @@ def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str
           </div>
           {_bulk_allocation_form(suggestions, companies)}
         </section>
+        """,
+        active="upload",
+    )
 
-        <section class="grid">
-          <div class="panel">
-            <h2>Index file</h2>
-            {_ingest_form(inbox_files, companies)}
-          </div>
-          <div class="panel">
-            <h2>Seneste index records</h2>
-            {_records_table(index_records)}
-          </div>
-          <div class="panel">
-            <h2>Seneste events</h2>
-            {_records_table(event_records)}
-          </div>
+
+@app.get("/companies", response_class=HTMLResponse)
+def companies_page(message: Optional[str] = None, error: Optional[str] = None) -> str:
+    if not is_test_workspace_configured():
+        return onboarding(message=message, error=error)
+
+    companies = list_test_companies()
+    return _page(
+        title="Virksomheder",
+        body=f"""
+        {_notice(message, "success")}
+        {_notice(error, "error")}
+
+        <section class="panel">
+          <h2>Virksomheder</h2>
+          {_companies_panel(companies)}
         </section>
+        """,
+        active="companies",
+    )
+
+
+@app.get("/applications", response_class=HTMLResponse)
+def applications_page(message: Optional[str] = None, error: Optional[str] = None) -> str:
+    if not is_test_workspace_configured():
+        return onboarding(message=message, error=error)
+
+    companies = list_test_companies()
+    writing_patterns = analyze_application_patterns()
+    return _page(
+        title="Ansogninger",
+        body=f"""
+        {_notice(message, "success")}
+        {_notice(error, "error")}
 
         <section class="panel">
           <div class="panel-header">
@@ -120,6 +172,73 @@ def dashboard(message: Optional[str] = None, error: Optional[str] = None) -> str
           {_writing_patterns_panel(writing_patterns)}
         </section>
         """,
+        active="applications",
+    )
+
+
+@app.get("/database", response_class=HTMLResponse)
+def database_page(message: Optional[str] = None, error: Optional[str] = None) -> str:
+    if not is_test_workspace_configured():
+        return onboarding(message=message, error=error)
+
+    index_records = _read_jsonl(TEST_INDEX, limit=25)
+    event_records = _read_jsonl(TEST_EVENTS, limit=25)
+    return _page(
+        title="Database",
+        body=f"""
+        {_notice(message, "success")}
+        {_notice(error, "error")}
+
+        <section class="grid">
+          <div class="panel">
+            <h2>Index records</h2>
+            {_records_table(index_records)}
+          </div>
+          <div class="panel">
+            <h2>Events</h2>
+            {_records_table(event_records)}
+          </div>
+        </section>
+        """,
+        active="database",
+    )
+
+
+@app.get("/system", response_class=HTMLResponse)
+def system_page(message: Optional[str] = None, error: Optional[str] = None) -> str:
+    configured = is_test_workspace_configured()
+    companies = list_test_companies() if configured else []
+    return _page(
+        title="System",
+        body=f"""
+        {_notice(message, "success")}
+        {_notice(error, "error")}
+
+        <section class="grid">
+          <div class="panel">
+            <h2>Status</h2>
+            <table>
+              <tbody>
+                <tr><th>Environment</th><td>Test</td></tr>
+                <tr><th>Access</th><td>127.0.0.1 local only</td></tr>
+                <tr><th>API</th><td>Off in test dashboard</td></tr>
+                <tr><th>External sharing</th><td>Off</td></tr>
+                <tr><th>Companies</th><td>{len(companies)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel">
+            <h2>Schedules</h2>
+            <table>
+              <tbody>
+                <tr><th>Softfunding scraper</th><td>Weekly, Monday 07:00 Europe/Copenhagen</td></tr>
+                <tr><th>Deadline reminders</th><td>30, 14, 7 and 3 days before deadline</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        """,
+        active="system",
     )
 
 
@@ -328,7 +447,19 @@ def _redirect(message: Optional[str] = None, error: Optional[str] = None) -> Red
     return RedirectResponse(url=f"/{suffix}", status_code=303)
 
 
-def _page(title: str, body: str) -> str:
+def _page(title: str, body: str, active: str = "") -> str:
+    nav_items = [
+        ("dashboard", "Dashboard", "/"),
+        ("upload", "Uploads", "/upload"),
+        ("applications", "Ansogninger", "/applications"),
+        ("companies", "Virksomheder", "/companies"),
+        ("database", "Database", "/database"),
+        ("system", "System", "/system"),
+    ]
+    nav = "".join(
+        f'<a class="{"active" if key == active else ""}" href="{href}">{label}</a>'
+        for key, label, href in nav_items
+    )
     return f"""
     <!doctype html>
     <html lang="da">
@@ -352,11 +483,24 @@ def _page(title: str, body: str) -> str:
               <small>API: off · Sharing: off · Slack: disabled</small>
             </div>
           </header>
+          <nav class="top-nav" aria-label="Dashboard navigation">
+            {nav}
+          </nav>
           {body}
         </main>
         <script>{_javascript()}</script>
       </body>
     </html>
+    """
+
+
+def _nav_card(title: str, href: str, metric: str, description: str) -> str:
+    return f"""
+    <a class="nav-card" href="{html.escape(href)}">
+      <span>{html.escape(metric)}</span>
+      <strong>{html.escape(title)}</strong>
+      <small>{html.escape(description)}</small>
+    </a>
     """
 
 
@@ -713,10 +857,19 @@ def _css() -> str:
     .status-card { padding: 16px; min-width: 260px; }
     .status-card span, .status-card small { display: block; color: var(--muted); }
     .status-card strong { display: block; margin: 6px 0; }
+    .top-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 22px; }
+    .top-nav a { border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: rgba(255, 253, 247, 0.74); padding: 9px 13px; text-decoration: none; font-weight: 700; }
+    .top-nav a.active { background: var(--accent); border-color: var(--accent); color: white; }
     .panel { padding: 20px; margin-bottom: 18px; }
     .panel-header { display: flex; justify-content: space-between; gap: 18px; align-items: start; }
     .badge { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; color: var(--accent); white-space: nowrap; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+    .nav-card { min-height: 150px; display: grid; align-content: space-between; gap: 12px; background: rgba(255, 253, 247, 0.92); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 18px; color: var(--ink); text-decoration: none; transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
+    .nav-card:hover { transform: translateY(-2px); border-color: rgba(15, 107, 87, 0.55); box-shadow: 0 22px 54px rgba(23, 33, 28, 0.14); }
+    .nav-card span { color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+    .nav-card strong { font-size: 20px; }
+    .nav-card small { color: var(--muted); line-height: 1.35; }
     .drop-form { display: grid; gap: 14px; }
     .dropzone { border: 2px dashed #9f9a8d; border-radius: 8px; padding: 32px; display: grid; place-items: center; gap: 6px; text-align: center; cursor: pointer; background: #fbf7ec; transition: border-color 140ms ease, background 140ms ease, transform 140ms ease; }
     .dropzone.is-dragging { border-color: var(--accent); background: #e7f3ee; transform: translateY(-1px); }
@@ -749,7 +902,7 @@ def _css() -> str:
 
     @media (max-width: 820px) {
       main { width: min(100vw - 20px, 1180px); padding-top: 18px; }
-      .hero, .grid, .panel-header, .pattern-grid { display: grid; grid-template-columns: 1fr; }
+      .hero, .grid, .panel-header, .pattern-grid, .dashboard-grid { display: grid; grid-template-columns: 1fr; }
       h1 { font-size: 34px; }
       .status-card { min-width: 0; }
     }
