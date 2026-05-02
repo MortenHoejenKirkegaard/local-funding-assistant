@@ -12,16 +12,63 @@ filesystem:
 
 network:
   api_calls_default: "ask_first"
+  external_actions_default: "deny"
   outbound_allowlist:
     - "api.openai.com"
     - "github.com"
     - "hooks.slack.com"
   require_approval_for_new_hosts: true
+  read_only_web_access: true
+
+spending:
+  allow_payments: false
+  allow_card_use: false
+  allow_checkout: false
+  allow_subscriptions: false
+  allow_paid_api_plan_changes: false
+  monthly_budget_usd_requires_manual_setting: true
+  require_user_approval_for_each_api_spend: true
+  hard_stop_when_budget_reached: true
+
+external_actions:
+  allow_contracts: false
+  allow_signatures: false
+  allow_terms_acceptance: false
+  allow_account_creation: false
+  allow_purchases: false
+  allow_bank_or_card_access: false
+  allow_calendar_invites_to_external_parties: false
+  allow_external_form_submission: false
+  allow_email_sending: false
+  allow_slack_sending: true
+  slack_output_only: true
+  require_human_to_send_external_messages: true
+  blocked_action_keywords:
+    - "buy"
+    - "purchase"
+    - "checkout"
+    - "subscribe"
+    - "upgrade"
+    - "accept terms"
+    - "sign"
+    - "contract"
+    - "agreement"
+    - "submit application"
+    - "send application"
+    - "create account"
+    - "enter card"
+    - "payment"
+    - "invoice"
 
 notifications:
+  email_enabled: false
+  slack_enabled: true
   allow_confidential_content_in_email: false
   allow_confidential_content_in_slack: false
   dashboard_can_show_confidential_content: true
+  allowed_external_output_channels:
+    - "slack"
+  slack_output_format: "summary_with_dashboard_reference"
 
 ingestion:
   allowed_drop_zone: "funding-assistant/system/inbox"

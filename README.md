@@ -12,6 +12,7 @@ Projektet indeholder nu:
 - Matchmaking scoring-framework.
 - Design for Mac control app og API-budgetstyring.
 - Adgangsrestriktioner, saa systemet kun maa arbejde inde i denne projektmappe.
+- Penge- og handlingspolitik, saa agenten ikke kan betale, indgaa aftaler eller sende eksterne ansøgninger.
 - Design for drag-and-drop ingestion-agent med brugerbekraeftelse foer indeksering.
 - Start/stop/status scripts til den lokale service-stack.
 
@@ -48,6 +49,10 @@ Systemets tilladte rodmappe er:
 ```
 
 Se [docs/adgangsrestriktioner.md](docs/adgangsrestriktioner.md) og [config/security-policy.yml](config/security-policy.yml).
+
+Agenten maa ikke bruge kortoplysninger, koebe noget, oprette abonnementer, acceptere vilkaar, underskrive aftaler, indsende ansøgninger eller sende email paa brugerens vegne. Eksternt output er som udgangspunkt kun korte Slack-beskeder til brugeren.
+
+Se [docs/eksterne-handlinger-og-pengepolitik.md](docs/eksterne-handlinger-og-pengepolitik.md).
 
 ## Drag-and-drop ingestion
 

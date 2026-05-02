@@ -253,6 +253,36 @@ CREATE TABLE ingestion_job_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE action_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor text NOT NULL,
+  action_type text NOT NULL CHECK (action_type IN (
+    'local_read',
+    'local_write',
+    'api_analysis',
+    'slack_output',
+    'external_submission',
+    'purchase',
+    'agreement',
+    'account_creation',
+    'email_send'
+  )),
+  target text,
+  company_id text REFERENCES companies(id) ON DELETE SET NULL,
+  project_id uuid REFERENCES projects(id) ON DELETE SET NULL,
+  decision text NOT NULL DEFAULT 'blocked' CHECK (decision IN (
+    'allowed',
+    'requires_approval',
+    'blocked'
+  )),
+  reason text NOT NULL,
+  estimated_cost_usd numeric,
+  user_approved_at timestamptz,
+  executed_at timestamptz,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE INDEX idx_projects_company_id ON projects(company_id);
 CREATE INDEX idx_documents_company_id ON documents(company_id);
 CREATE INDEX idx_documents_type ON documents(document_type);
@@ -270,3 +300,5 @@ CREATE INDEX idx_api_usage_events_task_time ON api_usage_events(task_type, creat
 CREATE INDEX idx_ingestion_jobs_status_time ON ingestion_jobs(status, created_at DESC);
 CREATE INDEX idx_ingestion_jobs_selected_company ON ingestion_jobs(selected_company_id, created_at DESC);
 CREATE INDEX idx_ingestion_job_events_job_time ON ingestion_job_events(ingestion_job_id, created_at DESC);
+CREATE INDEX idx_action_requests_decision_time ON action_requests(decision, created_at DESC);
+CREATE INDEX idx_action_requests_type_time ON action_requests(action_type, created_at DESC);
