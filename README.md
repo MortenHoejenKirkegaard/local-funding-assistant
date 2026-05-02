@@ -94,6 +94,18 @@ Indekser en testfil:
 
 Se [docs/testmiljoe.md](docs/testmiljoe.md).
 
+Start test-dashboard:
+
+```bash
+./scripts/run-test-app.sh
+```
+
+Dashboardet koerer paa:
+
+```text
+http://localhost:3000
+```
+
 ## Validering og tests
 
 Projektet har en foerste let testbase for policy- og path-regler.

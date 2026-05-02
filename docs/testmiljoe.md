@@ -36,6 +36,18 @@ funding-assistant-test/
 
 ## Saadan tester du
 
+Start web-dashboard:
+
+```bash
+./scripts/run-test-app.sh
+```
+
+Appen aabner paa:
+
+```text
+http://localhost:3000
+```
+
 Laeg en testfil i:
 
 ```text
@@ -109,3 +121,12 @@ I denne version:
 - Ingen API-kald bruges.
 - Ingen Slack-beskeder sendes.
 - Ingen data deles eksternt.
+
+## Foerste installation
+
+Hvis appen siger, at FastAPI mangler, koer:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[test]'
+```
